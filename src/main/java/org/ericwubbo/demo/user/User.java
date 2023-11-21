@@ -22,6 +22,10 @@ public class User {
         this.username = username;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
     public String getUsername() {
         return username;
     }
