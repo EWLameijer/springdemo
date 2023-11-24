@@ -1,6 +1,6 @@
 package org.ericwubbo.demo.movie;
 
-import org.ericwubbo.demo.InconsistentIdException;
+import org.ericwubbo.demo.BadInputException;
 import org.ericwubbo.demo.review.ReviewDto;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
+@RequestMapping("movies")
 public class MovieController {
     private final MovieRepository movieRepository;
 
@@ -57,7 +58,7 @@ public class MovieController {
         }
         movieRepository.save(movie);
         URI locationOfNewMovie = ucb
-                .path("{id}")
+                .path("movies/{id}")
                 .buildAndExpand(movie.getId())
                 .toUri();
         return ResponseEntity.created(locationOfNewMovie).body(movie);
@@ -65,8 +66,7 @@ public class MovieController {
 
     @PutMapping("{id}")
     public ResponseEntity<?> replace(@RequestBody Movie movie, @PathVariable long id) {
-        var idFromBody = movie.getId();
-        if (idFromBody != null && idFromBody != id) throw new InconsistentIdException();
+        checkBodyId(movie, id);
         var possibleOriginalMovie = movieRepository.findById(id);
         if (possibleOriginalMovie.isEmpty()) return ResponseEntity.notFound().build();
         movie.setId(id);
@@ -74,10 +74,15 @@ public class MovieController {
         return ResponseEntity.noContent().build();
     }
 
+    private static void checkBodyId(Movie movie, long id) {
+        var idFromBody = movie.getId();
+        if (idFromBody != null && idFromBody != id)
+            throw new BadInputException("ids given by path and body are inconsistent, and the id of an item should not be changed");
+    }
+
     @PatchMapping("{id}")
     public ResponseEntity<?> patch(@RequestBody Movie changedMovie, @PathVariable long id) {
-        var idFromBody = changedMovie.getId();
-        if (idFromBody != null && idFromBody != id) throw new InconsistentIdException();
+        checkBodyId(changedMovie, id);
         var possibleOriginalMovie = movieRepository.findById(id);
         if (possibleOriginalMovie.isEmpty()) return ResponseEntity.notFound().build();
 

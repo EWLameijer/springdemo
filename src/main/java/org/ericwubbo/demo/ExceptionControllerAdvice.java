@@ -8,11 +8,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ExceptionControllerAdvice {
-
-    @ExceptionHandler(InconsistentIdException.class)
-    public ResponseEntity<ProblemDetail> inconsistentIdExceptionHandler() {
-        var problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                "ids given by path and body are inconsistent, and the id of an item should not be changed");
+    @ExceptionHandler(BadInputException.class)
+    public ResponseEntity<ProblemDetail> badInputExceptionHandler(BadInputException exception) {
+        var problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
         return ResponseEntity.badRequest().body(problemDetail);
     }
 }

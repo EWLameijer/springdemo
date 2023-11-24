@@ -34,8 +34,8 @@ public class Seeder implements CommandLineRunner {
             var starWars = new Movie("Star Wars");
             movieRepository.saveAll(List.of(up, citizenKane, theGrandBudapest));
 
-            var me = new User("TheWub");
-            var testUser = new User("nn");
+            var me = new User("TheWub", "password123");
+            var testUser = new User("nn", "abc");
             userRepository.saveAll(List.of(me, testUser));
 
             var myCitizenKaneReview = new Review(citizenKane, me, 2, "famous, but disappointing");
