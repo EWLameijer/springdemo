@@ -1,5 +1,7 @@
 package org.ericwubbo.demo;
 
+import org.ericwubbo.demo.authority.Authority;
+import org.ericwubbo.demo.authority.AuthorityRepository;
 import org.ericwubbo.demo.movie.Movie;
 import org.ericwubbo.demo.movie.MovieRepository;
 import org.ericwubbo.demo.review.Review;
@@ -7,6 +9,7 @@ import org.ericwubbo.demo.review.ReviewRepository;
 import org.ericwubbo.demo.user.User;
 import org.ericwubbo.demo.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,10 +22,17 @@ public class Seeder implements CommandLineRunner {
 
     private final ReviewRepository reviewRepository;
 
-    public Seeder(MovieRepository movieRepository, UserRepository userRepository, ReviewRepository reviewRepository) {
+    private final PasswordEncoder passwordEncoder;
+
+    private final AuthorityRepository authorityRepository;
+
+    public Seeder(MovieRepository movieRepository, UserRepository userRepository, ReviewRepository reviewRepository,
+                  PasswordEncoder passwordEncoder, AuthorityRepository authorityRepository) {
         this.movieRepository = movieRepository;
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authorityRepository = authorityRepository;
     }
 
     @Override
@@ -34,9 +44,13 @@ public class Seeder implements CommandLineRunner {
             var starWars = new Movie("Star Wars");
             movieRepository.saveAll(List.of(up, citizenKane, theGrandBudapest));
 
-            var me = new User("TheWub", "password123");
-            var testUser = new User("nn", "abc");
+            var me = new User("TheWub", passwordEncoder.encode("password123"));
+            var testUser = new User("nn", passwordEncoder.encode("abc"));
             userRepository.saveAll(List.of(me, testUser));
+
+            var myRole = new Authority("TheWub", "ROLE_ADMIN");
+            var testRole = new Authority("nn", "ROLE_USER");
+            authorityRepository.saveAll(List.of(myRole, testRole));
 
             var myCitizenKaneReview = new Review(citizenKane, me, 2, "famous, but disappointing");
             var myUpReview = new Review(up, me, 5, "touching, surprising, and funny");
