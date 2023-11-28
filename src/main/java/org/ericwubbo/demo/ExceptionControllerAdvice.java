@@ -13,4 +13,9 @@ public class ExceptionControllerAdvice {
         var problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
         return ResponseEntity.badRequest().body(problemDetail);
     }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Void> notFoundExceptionHandler() {
+        return ResponseEntity.notFound().build();
+    }
 }

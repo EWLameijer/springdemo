@@ -1,28 +1,36 @@
 package org.ericwubbo.demo.movie;
 
+import lombok.RequiredArgsConstructor;
 import org.ericwubbo.demo.BadInputException;
+import org.ericwubbo.demo.NotFoundException;
+import org.ericwubbo.demo.review.Review;
 import org.ericwubbo.demo.review.ReviewDto;
+import org.ericwubbo.demo.review.ReviewRepository;
+import org.ericwubbo.demo.user.User;
+import org.ericwubbo.demo.user.UserService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("movies")
+@RequiredArgsConstructor
 public class MovieController {
     private final MovieRepository movieRepository;
 
-    public MovieController(MovieRepository movieRepository) {
-        this.movieRepository = movieRepository;
-    }
+    private final ReviewRepository reviewRepository;
+
+    private final UserService userService;
+
+    private final static String TITLE_CANNOT_BE_BLANK = "A movie requires a (non-blank) title";
 
     @GetMapping("{id}")
     public ResponseEntity<?> getById(@PathVariable long id) {
@@ -42,36 +50,31 @@ public class MovieController {
 
     @GetMapping
     public Iterable<MovieDto> getAll(Pageable pageable) {
-        return movieRepository.findAll(PageRequest.of(
-                pageable.getPageNumber(),
-                Math.min(pageable.getPageSize(), 3),
-                pageable.getSortOr(Sort.by("title"))
-        )).map(MovieDto::new);
+        return movieRepository.findAll(PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 3), pageable.getSortOr(Sort.by("title")))).map(MovieDto::new);
     }
 
     @PostMapping
-    public ResponseEntity<?> add(@RequestBody Movie movie, UriComponentsBuilder ucb) {
-        if (movie.getId() != null) {
-            var problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                    "the body of this POST request should not contain an id value, as that is assigned by the database");
-            return ResponseEntity.badRequest().body(problemDetail);
-        }
-        movieRepository.save(movie);
-        URI locationOfNewMovie = ucb
-                .path("movies/{id}")
-                .buildAndExpand(movie.getId())
-                .toUri();
-        return ResponseEntity.created(locationOfNewMovie).body(movie);
+    public ResponseEntity<?> add(@RequestBody MovieDto movieDto, UriComponentsBuilder ucb) {
+        var title = getTitleOrThrowErrorOnBadInput(movieDto);
+        verifyThatMovieDoesNotYetExist(title);
+        var newMovie = new Movie(title);
+        movieRepository.save(newMovie);
+        URI locationOfNewMovie = ucb.path("movies/{id}").buildAndExpand(newMovie.getId()).toUri();
+        return ResponseEntity.created(locationOfNewMovie).body(newMovie);
     }
 
-    @PutMapping("{id}")
-    public ResponseEntity<?> replace(@RequestBody Movie movie, @PathVariable long id) {
-        checkBodyId(movie, id);
-        var possibleOriginalMovie = movieRepository.findById(id);
-        if (possibleOriginalMovie.isEmpty()) return ResponseEntity.notFound().build();
-        movie.setId(id);
-        movieRepository.save(movie);
-        return ResponseEntity.noContent().build();
+    private void verifyThatMovieDoesNotYetExist(String title) {
+        var possibleExistingMovie = movieRepository.findByTitleIgnoringCase(title);
+        if (possibleExistingMovie.isPresent()) throw new BadInputException("Movie already exists");
+    }
+
+    private static String getTitleOrThrowErrorOnBadInput(MovieDto movieDto) {
+        if (movieDto.id() != null)
+            throw new BadInputException("the body of this POST request should not contain an id value, as that is assigned by the database");
+        if (movieDto.reviews() != null) throw new BadInputException("A movie should be created without reviews");
+        var rawTitle = movieDto.title();
+        if (rawTitle == null || rawTitle.isBlank()) throw new BadInputException(TITLE_CANNOT_BE_BLANK);
+        return rawTitle.trim();
     }
 
     private static void checkBodyId(Movie movie, long id) {
@@ -88,7 +91,13 @@ public class MovieController {
 
         var movie = possibleOriginalMovie.get();
         var newTitle = changedMovie.getTitle();
-        if (newTitle != null) movie.setTitle(newTitle);
+        if (newTitle == null)
+            throw new BadInputException("PATCH body does not contain any values that can change the movie.");
+
+        if (newTitle.isBlank()) throw new BadInputException(TITLE_CANNOT_BE_BLANK);
+        var title = newTitle.trim();
+        verifyThatMovieDoesNotYetExist(title);
+        movie.setTitle(title);
 
         movieRepository.save(movie);
         return ResponseEntity.ok(movie);
@@ -96,8 +105,7 @@ public class MovieController {
 
     @GetMapping("search/titles/{query}")
     public ResponseEntity<Iterable<MovieDto>> findTitlesContaining(@PathVariable String query) {
-        List<MovieDto> movieDtos = movieRepository.findByTitleIgnoringCaseContaining(query)
-                .stream().map(MovieDto::new).toList();
+        List<MovieDto> movieDtos = movieRepository.findByTitleIgnoringCaseContaining(query).stream().map(MovieDto::new).toList();
         return ResponseEntity.ok(movieDtos);
     }
 
@@ -107,5 +115,55 @@ public class MovieController {
             movieRepository.deleteById(id);
             return ResponseEntity.noContent().build();
         } else return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("{movieId}/reviews")
+    public ResponseEntity<ReviewDto> postReview(@RequestBody ReviewDto review, @PathVariable long movieId, Principal principal, UriComponentsBuilder ucb) {
+        var movie = getMovie(movieId);
+        var user = getUser(principal);
+        var possiblyExistingReview = reviewRepository.findByUserAndMovie(user, movie);
+        if (possiblyExistingReview.isPresent())
+            throw new BadInputException("This user has already written a review for this movie.");
+        checkRating(review);
+        var completeReview = new Review(movie, user, review.rating(), review.text());
+        reviewRepository.save(completeReview);
+        URI locationOfNewReview = ucb.path("reviews/{id}").buildAndExpand(completeReview.getId()).toUri();
+        return ResponseEntity.created(locationOfNewReview).body(new ReviewDto(completeReview));
+    }
+
+    @PatchMapping("{movieId}/reviews")
+    public ResponseEntity<ReviewDto> changeReview(@RequestBody ReviewDto newReviewDto, @PathVariable long movieId, Principal principal) {
+        var movie = getMovie(movieId);
+        var user = getUser(principal);
+        var possiblyExistingReview = reviewRepository.findByUserAndMovie(user, movie);
+        if (possiblyExistingReview.isEmpty())
+            throw new BadInputException("This user has not yet written a review for this movie.");
+        var currentReview = possiblyExistingReview.get();
+        var rating = newReviewDto.rating();
+        if (rating != null) {
+            checkRating(newReviewDto);
+            currentReview.setRating(rating);
+        }
+        var text = newReviewDto.text();
+        if (text != null) currentReview.setText(text);
+        reviewRepository.save(currentReview);
+        return ResponseEntity.ok(new ReviewDto(currentReview));
+    }
+
+    private static void checkRating(ReviewDto reviewDto) {
+        var rating = reviewDto.rating();
+        if (rating > 5 || rating < 1) throw new BadInputException("Rating should be at least 1 and at most 5!");
+    }
+
+    private User getUser(Principal principal) {
+        var possibleUser = userService.findByUsername(principal.getName());
+        if (possibleUser.isEmpty()) throw new IllegalArgumentException("Error with principal!");
+        return possibleUser.get();
+    }
+
+    private Movie getMovie(long movieId) {
+        var possibleMovie = movieRepository.findById(movieId);
+        if (possibleMovie.isEmpty()) throw new NotFoundException();
+        return possibleMovie.get();
     }
 }

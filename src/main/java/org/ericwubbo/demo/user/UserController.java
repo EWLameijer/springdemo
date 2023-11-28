@@ -6,27 +6,27 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.security.Principal;
 
 
 @RestController
 @RequestMapping("users")
 public class UserController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public UserController(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
     @PostMapping("register")
     public ResponseEntity<?> register(@RequestBody UserRegistrationDto userRegistrationDto, UriComponentsBuilder ucb) {
         var username = getValidValueOrThrow(userRegistrationDto.username(), "username");
         var password = getValidValueOrThrow(userRegistrationDto.password(), "password");
-        var possibleUser = userRepository.findByUsername(username);
+        var possibleUser = userService.findByUsername(username);
         if (possibleUser.isPresent()) throw new BadInputException("username already exists");
 
-        var newUser = new User(username, password);
-        userRepository.save(newUser);
+        var newUser = userService.save(username, password, MARole.USER);
         URI locationOfNewUser = ucb
                 .path("users/{username}")
                 .buildAndExpand(newUser.getUsername())
@@ -35,8 +35,9 @@ public class UserController {
     }
 
     @GetMapping("{username}")
-    public ResponseEntity<UserRegistrationResultDto> getUser(@PathVariable String username) {
-        var possiblyFoundUser = userRepository.findByUsername(username);
+    public ResponseEntity<UserRegistrationResultDto> getUser(@PathVariable String username, Principal principal) {
+        if (!principal.getName().equals(username)) return ResponseEntity.notFound().build();
+        var possiblyFoundUser = userService.findByUsername(username);
         return possiblyFoundUser.map(user -> ResponseEntity.ok(new UserRegistrationResultDto(user.getUsername())))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
