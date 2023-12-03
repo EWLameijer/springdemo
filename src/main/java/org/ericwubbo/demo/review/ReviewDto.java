@@ -1,7 +1,7 @@
 package org.ericwubbo.demo.review;
 
 public record ReviewDto(String username, Integer rating, String text) {
-    public ReviewDto(Review review) {
-        this(review.getUser().getUsername(), review.getRating(), review.getText());
+    public static ReviewDto from(Review review) {
+        return new ReviewDto(review.getUser().getUsername(), review.getRating(), review.getText());
     }
 }

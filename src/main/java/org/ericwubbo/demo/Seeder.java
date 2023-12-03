@@ -1,7 +1,6 @@
 package org.ericwubbo.demo;
 
 import lombok.RequiredArgsConstructor;
-import org.ericwubbo.demo.authority.AuthorityRepository;
 import org.ericwubbo.demo.movie.Movie;
 import org.ericwubbo.demo.movie.MovieRepository;
 import org.ericwubbo.demo.review.Review;
@@ -21,8 +20,6 @@ public class Seeder implements CommandLineRunner {
     private final UserService userService;
 
     private final ReviewRepository reviewRepository;
-
-    private final AuthorityRepository authorityRepository;
 
     @Override
     public void run(String... args) throws Exception {

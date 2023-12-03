@@ -15,8 +15,7 @@ public class ReviewController {
 
     @GetMapping("{id}")
     public ResponseEntity<ReviewDto> get(@PathVariable long id) {
-        var possibleReview = reviewRepository.findById(id);
-        return possibleReview.map(review -> ResponseEntity.ok(new ReviewDto(review)))
+        return reviewRepository.findById(id).map(review -> ResponseEntity.ok(ReviewDto.from(review)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

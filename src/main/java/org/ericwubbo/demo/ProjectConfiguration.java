@@ -1,5 +1,6 @@
 package org.ericwubbo.demo;
 
+import org.ericwubbo.demo.user.MARole;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -16,7 +17,6 @@ import javax.sql.DataSource;
 
 @Configuration
 public class ProjectConfiguration {
-
     @Bean
     public UserDetailsService userDetailsService(DataSource dataSource) {
         return new JdbcUserDetailsManager(dataSource);
@@ -36,6 +36,8 @@ public class ProjectConfiguration {
                         requests
                                 .requestMatchers("/users/register").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/movies/**").permitAll()
+                                .requestMatchers(HttpMethod.DELETE, "/movies/**").hasRole(MARole.ADMIN.asRole())
+                                .requestMatchers(HttpMethod.PATCH, "/movies/**").hasRole(MARole.ADMIN.asRole())
                                 .anyRequest().authenticated()
                 )
                 .build();

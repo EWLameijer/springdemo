@@ -1,6 +1,5 @@
 package org.ericwubbo.demo.review;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -23,9 +22,7 @@ public class Review {
     @ManyToOne
     private User user;
 
-
     @ManyToOne
-    @JsonBackReference
     private Movie movie;
 
     private Integer rating;

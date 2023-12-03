@@ -18,7 +18,7 @@ public class UserService {
     private final AuthorityRepository authorityRepository;
 
     public User save(String username, String password, MARole role) {
-        authorityRepository.save(new Authority(username, role.toString()));
+        authorityRepository.save(new Authority(username, role.asAuthority()));
         return userRepository.save(new User(username, passwordEncoder.encode(password)));
     }
 

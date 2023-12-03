@@ -33,34 +33,38 @@ public class MovieController {
     private final static String TITLE_CANNOT_BE_BLANK = "A movie requires a (non-blank) title";
 
     @GetMapping("{id}")
-    public ResponseEntity<?> getById(@PathVariable long id) {
+    public ResponseEntity<MovieDto> getById(@PathVariable long id) {
         Optional<Movie> possibleMovie = movieRepository.findById(id);
-        if (possibleMovie.isEmpty()) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(new MovieDto(possibleMovie.get()));
+        return possibleMovie.map(movie -> ResponseEntity.ok(MovieDto.from(movie)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("reviews/{id}")
     public ResponseEntity<List<ReviewDto>> getReviews(@PathVariable long id) {
         Optional<Movie> possibleMovie = movieRepository.findById(id);
         if (possibleMovie.isEmpty()) return ResponseEntity.notFound().build();
-        var movie = possibleMovie.get();
-        var movieReviews = movie.getReviews();
-        return ResponseEntity.ok(movieReviews.stream().map(ReviewDto::new).toList());
+        var movieReviews = possibleMovie.get().getReviews();
+        return ResponseEntity.ok(movieReviews.stream().map(ReviewDto::from).toList());
     }
 
     @GetMapping
     public Iterable<MovieDto> getAll(Pageable pageable) {
-        return movieRepository.findAll(PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 3), pageable.getSortOr(Sort.by("title")))).map(MovieDto::new);
+        return movieRepository.findAll(
+                        PageRequest.of(
+                                pageable.getPageNumber(),
+                                Math.min(pageable.getPageSize(), 3),
+                                pageable.getSortOr(Sort.by("title"))))
+                .map(MovieDto::from);
     }
 
     @PostMapping
-    public ResponseEntity<?> add(@RequestBody MovieDto movieDto, UriComponentsBuilder ucb) {
+    public ResponseEntity<MovieDto> add(@RequestBody MovieDto movieDto, UriComponentsBuilder ucb) {
         var title = getTitleOrThrowErrorOnBadInput(movieDto);
         verifyThatMovieDoesNotYetExist(title);
         var newMovie = new Movie(title);
         movieRepository.save(newMovie);
         URI locationOfNewMovie = ucb.path("movies/{id}").buildAndExpand(newMovie.getId()).toUri();
-        return ResponseEntity.created(locationOfNewMovie).body(newMovie);
+        return ResponseEntity.created(locationOfNewMovie).body(MovieDto.from(newMovie));
     }
 
     private void verifyThatMovieDoesNotYetExist(String title) {
@@ -84,7 +88,7 @@ public class MovieController {
     }
 
     @PatchMapping("{id}")
-    public ResponseEntity<?> patch(@RequestBody Movie changedMovie, @PathVariable long id) {
+    public ResponseEntity<MovieDto> patch(@RequestBody Movie changedMovie, @PathVariable long id) {
         checkBodyId(changedMovie, id);
         var possibleOriginalMovie = movieRepository.findById(id);
         if (possibleOriginalMovie.isEmpty()) return ResponseEntity.notFound().build();
@@ -100,12 +104,12 @@ public class MovieController {
         movie.setTitle(title);
 
         movieRepository.save(movie);
-        return ResponseEntity.ok(movie);
+        return ResponseEntity.ok(MovieDto.from(movie));
     }
 
     @GetMapping("search/titles/{query}")
     public ResponseEntity<Iterable<MovieDto>> findTitlesContaining(@PathVariable String query) {
-        List<MovieDto> movieDtos = movieRepository.findByTitleIgnoringCaseContaining(query).stream().map(MovieDto::new).toList();
+        var movieDtos = movieRepository.findByTitleIgnoringCaseContaining(query).stream().map(MovieDto::from).toList();
         return ResponseEntity.ok(movieDtos);
     }
 
@@ -118,7 +122,8 @@ public class MovieController {
     }
 
     @PostMapping("{movieId}/reviews")
-    public ResponseEntity<ReviewDto> postReview(@RequestBody ReviewDto review, @PathVariable long movieId, Principal principal, UriComponentsBuilder ucb) {
+    public ResponseEntity<ReviewDto> postReview(@RequestBody ReviewDto review,
+                                                @PathVariable long movieId, Principal principal, UriComponentsBuilder ucb) {
         var movie = getMovie(movieId);
         var user = getUser(principal);
         var possiblyExistingReview = reviewRepository.findByUserAndMovie(user, movie);
@@ -128,11 +133,12 @@ public class MovieController {
         var completeReview = new Review(movie, user, review.rating(), review.text());
         reviewRepository.save(completeReview);
         URI locationOfNewReview = ucb.path("reviews/{id}").buildAndExpand(completeReview.getId()).toUri();
-        return ResponseEntity.created(locationOfNewReview).body(new ReviewDto(completeReview));
+        return ResponseEntity.created(locationOfNewReview).body(ReviewDto.from(completeReview));
     }
 
     @PatchMapping("{movieId}/reviews")
-    public ResponseEntity<ReviewDto> changeReview(@RequestBody ReviewDto newReviewDto, @PathVariable long movieId, Principal principal) {
+    public ResponseEntity<ReviewDto> changeReview(@RequestBody ReviewDto newReviewDto, @PathVariable long movieId,
+                                                  Principal principal) {
         var movie = getMovie(movieId);
         var user = getUser(principal);
         var possiblyExistingReview = reviewRepository.findByUserAndMovie(user, movie);
@@ -147,7 +153,7 @@ public class MovieController {
         var text = newReviewDto.text();
         if (text != null) currentReview.setText(text);
         reviewRepository.save(currentReview);
-        return ResponseEntity.ok(new ReviewDto(currentReview));
+        return ResponseEntity.ok(ReviewDto.from(currentReview));
     }
 
     private static void checkRating(ReviewDto reviewDto) {
@@ -162,8 +168,6 @@ public class MovieController {
     }
 
     private Movie getMovie(long movieId) {
-        var possibleMovie = movieRepository.findById(movieId);
-        if (possibleMovie.isEmpty()) throw new NotFoundException();
-        return possibleMovie.get();
+        return movieRepository.findById(movieId).orElseThrow(NotFoundException::new);
     }
 }

@@ -1,6 +1,6 @@
 package org.ericwubbo.demo.authority;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.CrudRepository;
 
-public interface AuthorityRepository extends JpaRepository<Authority, String> {
+public interface AuthorityRepository extends CrudRepository<Authority, String> {
 }

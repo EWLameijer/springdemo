@@ -1,5 +1,6 @@
 package org.ericwubbo.demo.user;
 
+import lombok.RequiredArgsConstructor;
 import org.ericwubbo.demo.BadInputException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,16 +12,13 @@ import java.security.Principal;
 
 @RestController
 @RequestMapping("users")
+@RequiredArgsConstructor
 public class UserController {
-
     private final UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
     @PostMapping("register")
-    public ResponseEntity<?> register(@RequestBody UserRegistrationDto userRegistrationDto, UriComponentsBuilder ucb) {
+    public ResponseEntity<UserRegistrationResultDto> register(
+            @RequestBody UserRegistrationDto userRegistrationDto, UriComponentsBuilder ucb) {
         var username = getValidValueOrThrow(userRegistrationDto.username(), "username");
         var password = getValidValueOrThrow(userRegistrationDto.password(), "password");
         var possibleUser = userService.findByUsername(username);
@@ -31,7 +29,7 @@ public class UserController {
                 .path("users/{username}")
                 .buildAndExpand(newUser.getUsername())
                 .toUri();
-        return ResponseEntity.created((locationOfNewUser)).body(new UserRegistrationResultDto(newUser.getUsername()));
+        return ResponseEntity.created(locationOfNewUser).body(new UserRegistrationResultDto(newUser.getUsername()));
     }
 
     @GetMapping("{username}")
