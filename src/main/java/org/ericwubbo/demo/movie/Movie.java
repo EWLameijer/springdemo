@@ -1,12 +1,10 @@
 package org.ericwubbo.demo.movie;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.ericwubbo.demo.genre.Genre;
 import org.ericwubbo.demo.review.Review;
 
 import java.util.HashSet;
@@ -26,7 +24,11 @@ public class Movie {
     @OneToMany(mappedBy = "movie")
     private final Set<Review> reviews = new HashSet<>();
 
-    public Movie(String title) {
+    @ManyToMany
+    private Set<Genre> genres = new HashSet<>();
+
+    public Movie(String title, Set<Genre> genres) {
         this.title = title;
+        this.genres = genres;
     }
 }

@@ -1,6 +1,8 @@
 package org.ericwubbo.demo;
 
 import lombok.RequiredArgsConstructor;
+import org.ericwubbo.demo.genre.Genre;
+import org.ericwubbo.demo.genre.GenreRepository;
 import org.ericwubbo.demo.movie.Movie;
 import org.ericwubbo.demo.movie.MovieRepository;
 import org.ericwubbo.demo.review.Review;
@@ -11,6 +13,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -21,12 +24,22 @@ public class Seeder implements CommandLineRunner {
 
     private final ReviewRepository reviewRepository;
 
+    private final GenreRepository genreRepository;
+
     @Override
     public void run(String... args) throws Exception {
         if (movieRepository.count() == 0) {
-            var up = new Movie("Up");
-            var citizenKane = new Movie("Citizen Kane");
-            var theGrandBudapest = new Movie("The Grand Budapest Hotel");
+            var adventure = new Genre("adventure");
+            var animation = new Genre("animation");
+            var comedy = new Genre("comedy");
+            var crime = new Genre("crime");
+            var drama = new Genre("drama");
+            var family = new Genre("family");
+            var mystery = new Genre("mystery");
+            genreRepository.saveAll(List.of(adventure, animation, comedy, crime, drama, family, mystery));
+            var up = new Movie("Up", Set.of(adventure, animation, comedy, drama, family));
+            var citizenKane = new Movie("Citizen Kane", Set.of(drama, mystery));
+            var theGrandBudapest = new Movie("The Grand Budapest Hotel", Set.of(adventure, comedy, crime));
             movieRepository.saveAll(List.of(up, citizenKane, theGrandBudapest));
 
             var me = userService.save("TheWub", "password123", MARole.ADMIN);
