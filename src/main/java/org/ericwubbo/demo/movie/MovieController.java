@@ -158,6 +158,7 @@ public class MovieController {
 
     private static void checkRating(ReviewDto reviewDto) {
         var rating = reviewDto.rating();
+        if (rating == null) throw new BadInputException("Each review should have a rating");
         if (rating > 5 || rating < 1) throw new BadInputException("Rating should be at least 1 and at most 5!");
     }
 
