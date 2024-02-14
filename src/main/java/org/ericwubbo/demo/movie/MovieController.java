@@ -19,6 +19,7 @@ import java.net.URI;
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("movies")
@@ -61,7 +62,7 @@ public class MovieController {
     public ResponseEntity<MovieDto> add(@RequestBody MovieDto movieDto, UriComponentsBuilder ucb) {
         var title = getTitleOrThrowErrorOnBadInput(movieDto);
         verifyThatMovieDoesNotYetExist(title);
-        var newMovie = new Movie(title);
+        var newMovie = new Movie(title, Set.of());
         movieRepository.save(newMovie);
         URI locationOfNewMovie = ucb.path("movies/{id}").buildAndExpand(newMovie.getId()).toUri();
         return ResponseEntity.created(locationOfNewMovie).body(MovieDto.from(newMovie));
